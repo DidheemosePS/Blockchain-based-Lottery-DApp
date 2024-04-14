@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import Web3 from "web3";
 
 interface CustomWindow extends Window {
@@ -12,7 +13,8 @@ interface CustomWindow extends Window {
 declare const window: CustomWindow;
 
 export default function Home() {
-  const [events, setEvents] = useState([]);
+  const router = useRouter();
+  const [participated_events, setParticipanted_events] = useState([]);
 
   const connect_contract = async () => {
     const ABI = [
@@ -446,18 +448,23 @@ export default function Home() {
     window.contract = await new window.web3.eth.Contract(ABI, Address);
   };
 
-  const handle_participate = async (id: number, fee: number) => {
+  const [redeem_input_value, setRedeem_input_value] = useState("");
+  const handle_redeem_input = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRedeem_input_value(event.target.value);
+  };
+
+  const redeem = async (ticket: any, participant: any) => {
     try {
       if (document.cookie.split("=")[1]) {
-        const ticket = Math.floor(Math.random() * 100) + 1;
         const tx = await window.contract.methods
-          .participate_event(id, ticket)
-          .send({ from: document.cookie.split("=")[1], value: fee });
+          .redeem(ticket, redeem_input_value)
+          .send({ from: document.cookie.split("=")[1] });
         tx.transactionHash
-          ? alert("Thank you for participating")
-          : alert("Failed to participate");
+          ? alert("Successfully redeemed the prize pool")
+          : alert("Failed to redeem the prize pool");
+        location.reload();
       } else {
-        alert("Please ensure that the metamask is installed on your browser.");
+        alert("Please connect to your metamask wallet");
       }
     } catch (error) {
       console.log(error);
@@ -466,41 +473,82 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      const fetch_all_events = async () => {
+      const get_participated_events_all = async () => {
         await connect_contract();
-        const all_events = await window.contract.methods.get_event_all().call();
-        const filter_events_all = all_events.filter(
-          (event: any) => event.winner == ""
+        const all_events = await window.contract.methods
+          .get_participated_events_all()
+          .call();
+        const filter_participated_events = all_events.filter(
+          (event: any) => event.participant == document.cookie.split("=")[1]
         );
-        setEvents(filter_events_all);
+        setParticipanted_events(filter_participated_events);
       };
-      fetch_all_events();
+      get_participated_events_all();
     } catch (error) {
       console.log(error);
     }
   }, []);
 
   return (
-    <main className="bg-white text-black px-20 py-5 grid grid-cols-3">
-      {events.length === 0 && <p>There is no ongoing events</p>}
-      {events?.map((event: any) => (
-        <div key={event.id} className="bg-slate-200 p-4 rounded-md">
+    <main className="bg-white text-black px-20 py-5 grid grid-cols-3 gap-3">
+      {participated_events.length === 0 && <p>There is no ongoing events</p>}
+      {participated_events?.map((event: any) => (
+        <div key={event.ticket} className="bg-slate-200 py-5 px-10 rounded-md">
+          <p className="font-bold">Ticket No:</p>
+          <p className="text-ellipsis overflow-hidden">
+            {event.ticket.toString()}
+          </p>
           <p className="font-bold">Created:</p>
-          <p className="text-ellipsis overflow-hidden">{event.creator}</p>
+          <p className="text-ellipsis overflow-hidden">{event[2].creator}</p>
           <p className="font-bold">Event Name:</p>
-          <p>{event.name}</p>
+          <p className="text-ellipsis overflow-hidden">{event[2].name}</p>
           <p className="font-bold">Participation Fee:</p>
-          <p>{Web3.utils.fromWei(event.fee, "ether")} ETH</p>
+          <p className="text-ellipsis overflow-hidden">
+            {Web3.utils.fromWei(event[2].fee, "ether")}
+          </p>
           <p className="font-bold">Prize Distribution:</p>
-          <p>{event.result_date}</p>
-          <p className="font-bold">Prize Distribution:</p>
-          <p>{Web3.utils.fromWei(event.prize_pool, "ether")} ETH</p>
-          <button
-            className="px-2 py-[4px] mt-2 bg-gray-500 rounded text-sm font-bold"
-            onClick={() => handle_participate(event.id, event.fee)}
-          >
-            Join
-          </button>
+          <p className="text-ellipsis overflow-hidden">
+            {event[2].result_date}
+          </p>
+          <p className="font-bold">Prize Pool:</p>
+          <p className="text-ellipsis overflow-hidden">
+            {Web3.utils.fromWei(event[2].prize_pool, "ether")}
+          </p>
+          {event.winner.winner_address && (
+            <>
+              <p className="font-bold">Winner ticket No:</p>
+              <p>{event.winner.ticket_number.toString()}</p>
+              <p className="font-bold">Winner:</p>
+              <p className="text-ellipsis overflow-hidden">
+                {event.winner.winner_address}
+              </p>
+            </>
+          )}
+          {event.winner.winner_address == document.cookie.split("=")[1] &&
+            event.winner.ticket_number.toString() == event.ticket.toString() &&
+            !event.redeem && (
+              <>
+                <input
+                  onChange={handle_redeem_input}
+                  type="text"
+                  placeholder="Enter the your wallet address"
+                  required
+                  className="w-full text-black mb-3 rounded border-2 border-sky-400 px-2 mt-2 placeholder:text-sm"
+                />
+                <button
+                  onClick={() => redeem(event.ticket, event.participant)}
+                  className="w-max px-2 py-[4px] bg-gray-500 rounded text-sm font-bold"
+                >
+                  Redeem
+                </button>
+              </>
+            )}
+          {event.winner.ticket_number.toString() == event.ticket.toString() &&
+            event.redeem && (
+              <p className="w-max px-2 py-[4px] mt-2 bg-gray-500 rounded text-sm font-bold">
+                Redeemed
+              </p>
+            )}
         </div>
       ))}
     </main>

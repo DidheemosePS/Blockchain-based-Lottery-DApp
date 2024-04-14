@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Web3 from "web3";
 
 interface CustomWindow extends Window {
@@ -12,8 +13,7 @@ interface CustomWindow extends Window {
 declare const window: CustomWindow;
 
 export default function Home() {
-  const [events, setEvents] = useState([]);
-
+  const router = useRouter();
   const connect_contract = async () => {
     const ABI = [
       {
@@ -446,63 +446,91 @@ export default function Home() {
     window.contract = await new window.web3.eth.Contract(ABI, Address);
   };
 
-  const handle_participate = async (id: number, fee: number) => {
+  const handle_event_submit = async (event: FormEvent<HTMLFormElement>) => {
     try {
+      event.preventDefault();
       if (document.cookie.split("=")[1]) {
-        const ticket = Math.floor(Math.random() * 100) + 1;
+        const form_data = new FormData(event.currentTarget);
+        const event_id = Math.floor(Math.random() * 100) + 1;
+        const event_name = Object.fromEntries(form_data).event_name as string;
+        const event_fee = parseInt(
+          Object.fromEntries(form_data).event_fee as string
+        );
+        const event_date = Object.fromEntries(form_data).event_date as string;
+        const event_prize = parseInt(
+          Object.fromEntries(form_data).event_prize as string
+        );
+
+        // Call the event creation function
+
+        await connect_contract();
         const tx = await window.contract.methods
-          .participate_event(id, ticket)
-          .send({ from: document.cookie.split("=")[1], value: fee });
+          .create_event(
+            event_id,
+            event_name,
+            event_fee,
+            event_date,
+            event_prize
+          )
+          .send({ from: document.cookie.split("=")[1] });
         tx.transactionHash
-          ? alert("Thank you for participating")
-          : alert("Failed to participate");
+          ? alert("Event created successfully")
+          : alert("Event creation failed");
+        if (tx.transactionHash) {
+          router.push("/created_events");
+        }
       } else {
-        alert("Please ensure that the metamask is installed on your browser.");
+        alert("Please connect to your metamask wallet");
       }
     } catch (error) {
       console.log(error);
     }
   };
 
-  useEffect(() => {
-    try {
-      const fetch_all_events = async () => {
-        await connect_contract();
-        const all_events = await window.contract.methods.get_event_all().call();
-        const filter_events_all = all_events.filter(
-          (event: any) => event.winner == ""
-        );
-        setEvents(filter_events_all);
-      };
-      fetch_all_events();
-    } catch (error) {
-      console.log(error);
-    }
-  }, []);
-
   return (
-    <main className="bg-white text-black px-20 py-5 grid grid-cols-3">
-      {events.length === 0 && <p>There is no ongoing events</p>}
-      {events?.map((event: any) => (
-        <div key={event.id} className="bg-slate-200 p-4 rounded-md">
-          <p className="font-bold">Created:</p>
-          <p className="text-ellipsis overflow-hidden">{event.creator}</p>
-          <p className="font-bold">Event Name:</p>
-          <p>{event.name}</p>
-          <p className="font-bold">Participation Fee:</p>
-          <p>{Web3.utils.fromWei(event.fee, "ether")} ETH</p>
-          <p className="font-bold">Prize Distribution:</p>
-          <p>{event.result_date}</p>
-          <p className="font-bold">Prize Distribution:</p>
-          <p>{Web3.utils.fromWei(event.prize_pool, "ether")} ETH</p>
-          <button
-            className="px-2 py-[4px] mt-2 bg-gray-500 rounded text-sm font-bold"
-            onClick={() => handle_participate(event.id, event.fee)}
-          >
-            Join
-          </button>
-        </div>
-      ))}
+    <main className="flex flex-col gap-3 bg-white text-black py-5">
+      <p className="m-auto font-bold">Create Event</p>
+      <form
+        onSubmit={handle_event_submit}
+        className="w-96 flex flex-col m-auto bg-slate-200 p-10 rounded-md"
+      >
+        <label className="text-xs font-bold mb-1">Event Name</label>
+        <input
+          type="text"
+          name="event_name"
+          required
+          className="text-black mb-3 rounded border-2 border-sky-400 px-2 py-1 text-xs"
+        />
+        <label className="text-xs font-bold mb-1">Event Fee</label>
+        <input
+          type="number"
+          name="event_fee"
+          placeholder="1000000000000000000 = 1 ETH"
+          required
+          className="text-black mb-3 rounded border-2 border-sky-400 px-2 py-1 text-xs"
+        />
+        <label className="text-xs font-bold mb-1">Date of result</label>
+        <input
+          type="date"
+          name="event_date"
+          required
+          className="text-black mb-3 rounded border-2 border-sky-400 px-2 py-1 text-xs"
+        />
+        <label className="text-xs font-bold mb-1">prize pool</label>
+        <input
+          type="number"
+          name="event_prize"
+          placeholder="1000000000000000000 = 1 ETH"
+          required
+          className="text-black mb-3 rounded border-2 border-sky-400 px-2 py-1 text-xs"
+        />
+        <button
+          type="submit"
+          className="px-2 py-[4px] mt-2 bg-gray-500 rounded"
+        >
+          Create Event
+        </button>
+      </form>
     </main>
   );
 }
