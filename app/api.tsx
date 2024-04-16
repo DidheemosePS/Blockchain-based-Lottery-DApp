@@ -1,5 +1,7 @@
 const fetch_api = async () => {
-  const response = await fetch("https://api.coincap.io/v2/assets");
+  const response = await fetch("https://api.coincap.io/v2/assets", {
+    cache: "no-store",
+  });
   return await response.json();
 };
 

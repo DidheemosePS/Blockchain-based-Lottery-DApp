@@ -1,6 +1,7 @@
 const weather = async () => {
   const response = await fetch(
-    "https://openweathermap.org/data/2.5/weather?id=2964574&appid=439d4b804bc8187953eb36d2a8c26a02"
+    "https://openweathermap.org/data/2.5/weather?id=2964574&appid=439d4b804bc8187953eb36d2a8c26a02",
+    { cache: "no-store" }
   );
   return await response.json();
 };
