@@ -5,8 +5,6 @@ const fetch_api = async () => {
   return await response.json();
 };
 
-export const dynamic = "force-dynamic";
-
 export default async function API() {
   const coin_data = await fetch_api();
   const coin_data_filter = coin_data.data.filter((item: any) => {
