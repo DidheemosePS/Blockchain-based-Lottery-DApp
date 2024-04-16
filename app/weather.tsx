@@ -9,8 +9,12 @@ const weather = async () => {
 export const dynamic = "force-dynamic";
 
 export default async function Weather() {
-  const current_time = new Date();
   const weather_data = await weather();
+  const timestamp = weather_data.dt * 1000;
+  const utc_date = new Date(timestamp);
+  const offset_seconds = weather_data.timezone;
+  const milliseconds = utc_date.getTime() + (offset_seconds * 1000);
+  const current_time = new Date(milliseconds);
 
   return (
     <div className="w-full bg-slate-200 px-20 py-4 flex justify-center mt-auto">
